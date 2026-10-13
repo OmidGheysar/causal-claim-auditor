@@ -1,0 +1,748 @@
+{
+  "name": "DAG",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{ $json.body.claim }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You convert an informal health claim into a structured causal form. Do not judge whether the claim is true — only parse its structure.  claim_type: mark \"causal\" only if the claim asserts that the exposure CHANGES the outcome (causes, reduces, prevents, leads to). Mark \"associational\" if it only asserts a link or correlation. Mark \"ambiguous\" if the wording is causal but could be read either way.  Return only the structured object."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        -16
+      ],
+      "id": "ebfe34d6-decc-4fb6-8c8c-ca59389ca2bb",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        352
+      ],
+      "id": "0e928636-3353-45b6-a1e8-c70c322a0318",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "cCCRdb3Q04shD6hu",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"exposure\": \"vitamin D supplementation\",\n  \"outcome\": \"COVID-19 severity\",\n  \"population\": \"adults with infection\",\n  \"claimed_direction\": \"protective\",\n  \"claim_type\": \"causal\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        352
+      ],
+      "id": "7f610c9b-069f-438d-879e-4b088c9dedd2",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "results",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        -16
+      ],
+      "id": "34cf3b46-8a7d-461d-b78f-dc69b61559b2",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{ $json.title }}\n\n{{ $json.content }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=Extract a structured study card from the source below. Report only what the source states. If a field is not reported, use \"not reported\" for strings and null for sample_size, and [] for adjusted_for.\n\ndesign: classify by the actual study design. If the source is not a scientific study (e.g. a forum post, social media, blog, or news article), set design to \"other\".\nsupports_claim: whether THIS source's finding supports the specific claim being audited, given below. If the source is not a study or makes no clear finding, use \"unclear\".\n\nClaim being audited: {{ $('Basic LLM Chain').item.json.output.exposure }} affects {{ $('Basic LLM Chain').item.json.output.outcome }}\n\nSource title: {{ $json.title }}\nSource content: {{ $json.content }}\n\nReturn only the structured object."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1824,
+        -16
+      ],
+      "id": "4cfebfae-85ea-4d3c-b2b2-4652679443da",
+      "name": "Basic LLM Chain1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1776,
+        272
+      ],
+      "id": "bce50b16-18ac-40e6-b95d-b3fc2fcec98b",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "cCCRdb3Q04shD6hu",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"source_title\": \"Example study title\",\n  \"design\": \"cohort\",\n  \"sample_size\": \"97156\",\n  \"effect_measure\": \"RR 0.89 (0.82-0.95)\",\n  \"adjusted_for\": \"age, sex, smoking, BMI\",\n  \"randomized\": false,\n  \"key_limitation\": \"self-reported exposure\",\n  \"supports_claim\": \"supports\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2032,
+        256
+      ],
+      "id": "7d343c70-9542-41f8-93d1-6fe5555476d3",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        -16
+      ],
+      "id": "38b9316c-6838-412e-a3f4-6426142932f6",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==Claim: {{ $('Basic LLM Chain').item.json.output.exposure }} → {{ $('Basic LLM Chain').item.json.output.outcome }} (direction: {{ $('Basic LLM Chain').item.json.output.claimed_direction }})\n\nStudy cards:\n{{ JSON.stringify($('Aggregate').item.json.data) }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are auditing whether the evidence supports a CAUSAL claim, not merely an association. Some study cards may be empty or marked with an error; ignore those and reason only over cards with a real design and finding. The evidence comes from two searches: one for supporting studies and one for null or contradicting findings. Weigh both.  Work through these steps in order and write one or two sentences for each BEFORE assigning a score. Do not skip a step.  1. design_ceiling: What is the strongest design in this evidence base? An association from observational studies caps how causal any conclusion can be, no matter how many such studies agree. 2. confounding: Name the most likely confounders for this exposure and outcome pair (variables that plausibly drive BOTH). Before calling a variable a confounder, check whether the exposure itself could change it. If the exposure plausibly affects the variable, it is a mediator, not a confounder, and adjusting for it would block part of the real effect. Check which studies actually adjusted for the true confounders. Unadjusted plausible confounders are the main threat. 3. collider_mediator: Did any study adjust for something on the causal path (a mediator) or a common effect (a collider)? This INDUCES bias. Controlling for a lot is not a point in a study's favour if it controlled for the wrong things. 4. consistency: Do effects replicate across different designs? Is there a dose response gradient? Name any credible study that found a null or opposite effect. 5. temporality: Is reverse causation plausible, especially for cross sectional or ecological evidence?  SCORING RUBRIC for causal_support (apply strictly): 5 = multiple independent randomized trials or strong natural experiments, consistent results, and no credible null or contradicting studies in the evidence. 4 = at least one well conducted randomized trial or several strong quasi experimental studies, mostly consistent, but with a single landmark trial, some null findings, or clear limits on generalizability. 3 = mixed: mostly observational evidence with reasonable adjustment, or experimental evidence only for short term or proxy outcomes, or meaningful contradicting findings. 2 = observational evidence only, poorly adjusted or inconsistent, where confounding could plausibly explain the association. 1 = little relevant evidence, cross sectional or ecological evidence only, or evidence that mostly contradicts the claim. Caps: if the evidence relies on one landmark trial, the score cannot exceed 4. If any credible study (randomized trial, natural experiment, or large well adjusted cohort) reports a null or opposite effect, the score cannot exceed 4, and that study must be named and discussed under consistency.  DAG RULES: Include the exposure, the outcome, and every confounder, mediator, or collider you identified. Tag each edge's role as one of: causal, confounder, mediator, collider. Use \"causal\" for exactly one edge, from the exposure to the outcome. This edge is REQUIRED in every DAG, even when the evidence for it is weak; the score expresses how strong it is, the edge shows what is being tested. Use \"confounder\" only for a variable that points into both the exposure and the outcome and that the exposure cannot change. Use \"mediator\" only for edges on a path from the exposure to the outcome. Any variable the exposure plausibly changes belongs here, not among the confounders. Use \"collider\" only for a variable that receives an arrow directly from the exposure AND an arrow directly from the outcome, such as study selection that depends on both. If there is no such variable, include no collider. Do not draw edges between confounders. Start every node label with a capital letter, for example \"Air pollution\", \"Socioeconomic status\".  WRITING STYLE: Never use the hyphen, en dash, or em dash characters anywhere in your text, and never use arrow symbols. Write compound terms as one word or as separate words that read naturally, for example \"metaanalysis\", \"preregistered\", \"nonrandomized\", \"short term\", \"follow up\". Write ranges with \"to\", for example \"kindergarten to grade 3\". Equals signs are fine, for example \"n = 88\". Use plain sentences.  Return only the structured object."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2400,
+        -16
+      ],
+      "id": "0767e7bc-ab9a-4177-b028-5ad9cafcfae6",
+      "name": "Basic LLM Chain2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2336,
+        352
+      ],
+      "id": "219f5e47-dcaf-4d15-866f-ece58c6540a8",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "cCCRdb3Q04shD6hu",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"reasoning\": {\n    \"design_ceiling\": \"The strongest design here is a cohort study, so causal conclusions are limited.\",\n    \"confounding\": \"Likely confounders include age and baseline health; most studies adjusted for these.\",\n    \"collider_mediator\": \"No studies appear to adjust for mediators or colliders.\",\n    \"consistency\": \"Effects are broadly consistent across cohorts with a dose-response gradient.\",\n    \"temporality\": \"Reverse causation is unlikely given prospective designs.\"\n  },\n  \"verdict\": \"Likely associational, not established causal\",\n  \"causal_support\": 2,\n  \"strongest_design\": \"cohort\",\n  \"primary_threat\": \"unmeasured confounding by baseline health\",\n  \"what_would_upgrade_it\": \"an adequately powered randomized controlled trial\",\n  \"dag\": {\n    \"nodes\": [\"exposure\", \"outcome\", \"baseline health\", \"age\"],\n    \"edges\": [\n      {\"from\": \"exposure\", \"to\": \"outcome\", \"role\": \"causal\"},\n      {\"from\": \"baseline health\", \"to\": \"exposure\", \"role\": \"confounder\"},\n      {\"from\": \"baseline health\", \"to\": \"outcome\", \"role\": \"confounder\"}\n    ]\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2608,
+        336
+      ],
+      "id": "36619503-e909-4ff2-b5a8-9abf441558d8",
+      "name": "Structured Output Parser2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the reasoning node's structured output.\n// It usually sits under `output`; fall back to the item itself just in case.\nconst item = $input.first().json;\nconst r = item.output || item;\n\n// Map each edge role to a Mermaid arrow style so the diagram\n// visually distinguishes causal / confounder / mediator / collider.\nconst roleArrow = {\n  causal:     \"-->\",\n  confounder: \"-.->\",\n  mediator:   \"==>\",\n  collider:   \"-.->\"\n};\n\n// Mermaid node IDs can't contain spaces or punctuation, so sanitise.\nconst clean = s => String(s).replace(/[^a-zA-Z0-9]/g, \"_\");\n\n// Build the Mermaid diagram string, one line per node then per edge.\nlet mermaid = \"graph LR\\n\";\nfor (const n of r.dag.nodes) {\n  mermaid += `  ${clean(n)}[\"${n}\"]\\n`;\n}\nfor (const e of r.dag.edges) {\n  const arrow = roleArrow[e.role] || \"-->\";\n  mermaid += `  ${clean(e.from)} ${arrow}|${e.role}| ${clean(e.to)}\\n`;\n}\n\n// Turn the 1-5 score into a star bar.\nconst score = r.causal_support;\nconst stars = \"★\".repeat(score) + \"☆\".repeat(5 - score);\n\n// Assemble a readable verdict block in Markdown.\nconst summary = `## Causal Claim Audit\n\n**Verdict:** ${r.verdict}\n\n**Causal support:** ${stars} (${score}/5)\n\n**Strongest design:** ${r.strongest_design}\n\n**Primary threat:** ${r.primary_threat}\n\n**What would upgrade it:** ${r.what_would_upgrade_it}\n\n### Reasoning\n- **Design ceiling:** ${r.reasoning.design_ceiling}\n- **Confounding:** ${r.reasoning.confounding}\n- **Collider / mediator:** ${r.reasoning.collider_mediator}\n- **Consistency:** ${r.reasoning.consistency}\n- **Temporality:** ${r.reasoning.temporality}\n\n### Causal DAG\n\\`\\`\\`mermaid\n${mermaid}\\`\\`\\`\n`;\n\nreturn [{ json: { summary, mermaid, verdict: r.verdict, causal_support: score } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        -16
+      ],
+      "id": "c1b8a769-12ee-48ac-95d8-c31c9764aaa6",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "audit",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        64,
+        0
+      ],
+      "id": "a344a5a8-e9f8-41fa-8a9b-b2e76b54460e",
+      "name": "Webhook",
+      "webhookId": "c82ea640-ba8f-4ea9-b645-facd8903bc9d"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"summary\": $json.summary, \"verdict\": $json.verdict, \"score\": $json.causal_support, \"mermaid\": $json.mermaid } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3216,
+        -16
+      ],
+      "id": "3ba7a74c-108e-4876-9e31-f702a504b03b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"={{ $('Basic LLM Chain').item.json.output.exposure }} {{ $('Basic LLM Chain').item.json.output.outcome }} randomized controlled trial cohort study\",\n  \"search_depth\": \"advanced\",\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1056,
+        -160
+      ],
+      "id": "45911389-92f4-46d7-b222-90d50f35e90a",
+      "name": "Search supporting",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ms984qvV4Tk5mDMV",
+          "name": "Tavily API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"={{ $('Basic LLM Chain').item.json.output.exposure }} {{ $('Basic LLM Chain').item.json.output.outcome }} no effect null results failed to replicate\",\n  \"search_depth\": \"advanced\",\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1072,
+        192
+      ],
+      "id": "b4b4a769-d904-42e2-b7f5-9a43b8502a8d",
+      "name": "Search null findings",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ms984qvV4Tk5mDMV",
+          "name": "Tavily API"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1232,
+        -16
+      ],
+      "id": "2978efa6-58fc-47ed-9749-bf4873ae383e",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "url",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        -16
+      ],
+      "id": "62702151-fc20-4478-bf22-e7e8145b494d",
+      "name": "Remove Duplicates"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst raw = (input.body?.claim ?? '').toString().trim();\nconst key = raw.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst valid = raw.length >= 5 && raw.length <= 200;\n\nconst store = $getWorkflowStaticData('global');\nstore.cache = store.cache || {};\nconst hit = valid ? store.cache[key] : null;\nconst fresh = !!hit && (Date.now() - hit.t) < 30 * 24 * 3600 * 1000;\n\nif (fresh) {\n  const r = hit.r;\n  // same shape as a fresh answer: summary, verdict, score, mermaid\n  return [{ json: {\n    summary: r.summary,\n    verdict: r.verdict,\n    score: r.score ?? r.causal_support,\n    mermaid: r.mermaid,\n    cached: true,\n    valid: true\n  } }];\n}\nreturn [{ json: { ...input, cacheKey: key, valid, cached: false } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -192
+      ],
+      "id": "03a1ed6d-c9da-44b1-aa59-15d8f59a0534",
+      "name": "Check cache"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    },
+                    "id": "62d8599b-e79b-4fc6-8269-2c369b0b671b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "678e38df-4f4e-47f6-9e65-65fec8b44a2b",
+                    "leftValue": "={{ $json.cached }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cached"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        -224
+      ],
+      "id": "4d1c1d19-2723-4f46-a8dd-17c1a58ad9d5",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "   {\"error\": \"invalid claim\"}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        704,
+        -496
+      ],
+      "id": "04b94a8a-8e4f-46c8-8938-5b20927b8a31",
+      "name": "Respond invalid"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        704,
+        -304
+      ],
+      "id": "52cbd3ec-c921-4757-b053-d664a886fcc8",
+      "name": "Respond cached"
+    },
+    {
+      "parameters": {
+        "jsCode": "const store = $getWorkflowStaticData('global');\nstore.cache = store.cache || {};\nconst key = $('Check cache').first().json.cacheKey;\nconst result = $input.first().json;\n\nstore.cache[key] = { t: Date.now(), r: result };\n\n// keep only the 200 most recent claims\nconst keys = Object.keys(store.cache);\nif (keys.length > 200) {\n  keys.sort((a, b) => store.cache[a].t - store.cache[b].t)\n      .slice(0, keys.length - 200)\n      .forEach(k => delete store.cache[k]);\n}\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        -16
+      ],
+      "id": "34f00cde-ca25-4e13-b1ca-5a1d3a0aa7e5",
+      "name": "Save to cache"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5679",
+            "user-agent": "curl/8.18.0",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "47"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "claim": "aily walking make you happier"
+          },
+          "webhookUrl": "https://dag.omid.consulting/webhook/audit",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Search supporting",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search null findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Save to cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search supporting": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search null findings": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check cache": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond invalid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond cached",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to cache": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond cached": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b7d9b98c-4e87-4085-b435-646ab69bf400",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "760463f1f3c428892ab076c4312fbaf9a2d82e8e220bc0f5f3c924e0f557ace4"
+  },
+  "nodeGroups": [],
+  "id": "cDPIRlCUKGD1NIue",
+  "tags": []
+}

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Causal Claim Auditor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EAEEF2;
+    --surface:#FFFFFF;
+    --ink:#16202E;
+    --muted:#5A6B7B;
+    --faint:#8A99A7;
+    --hair:#D3DAE0;
+    --causal:#0F766E;   /* solid / strong */
+    --confound:#64748B; /* dashed */
+    --mediate:#B45309;  /* thick */
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* Masthead */
+  .masthead{padding-bottom:20px;border-bottom:1px solid var(--hair)}
+  .masthead h1{
+    font-family:var(--serif);
+    font-weight:500;
+    font-size:30px;
+    letter-spacing:-0.01em;
+    margin:0 0 6px;
+  }
+  .masthead p{margin:0;color:var(--muted);max-width:60ch;font-size:15px}
+
+  /* Ask */
+  .ask{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap}
+  .ask input{
+    flex:1 1 320px;
+    font-family:var(--sans);
+    font-size:16px;
+    color:var(--ink);
+    padding:13px 15px;
+    background:var(--surface);
+    border:1px solid var(--hair);
+    border-radius:2px;
+    outline:none;
+  }
+  .ask input:focus{border-color:var(--causal);box-shadow:0 0 0 3px rgba(15,118,110,.12)}
+  .ask button{
+    font-family:var(--sans);
+    font-size:15px;font-weight:600;
+    color:#fff;background:var(--causal);
+    border:0;border-radius:2px;
+    padding:0 22px;min-height:46px;
+    cursor:pointer;
+  }
+  .ask button:hover{background:#0b5f58}
+  .ask button:disabled{background:var(--faint);cursor:default}
+  .hint{margin-top:10px;font-size:13px;color:var(--faint)}
+  .count{margin-top:6px;font-size:12px;color:var(--faint);text-align:right}
+  .count.near{color:var(--mediate)}
+  .cached-note{margin-top:10px;font-size:13px;color:var(--faint)}
+  .examples{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .examples button{
+    font-family:var(--sans);font-size:13px;color:var(--muted);
+    background:transparent;border:1px solid var(--hair);border-radius:999px;
+    padding:5px 12px;cursor:pointer;
+  }
+  .examples button:hover{border-color:var(--causal);color:var(--causal)}
+
+  /* Loading */
+  .loading{margin-top:40px;display:none;align-items:center;gap:14px;color:var(--muted)}
+  .loading.on{display:flex}
+  .spinner{
+    width:22px;height:22px;border-radius:50%;
+    border:2.5px solid var(--hair);border-top-color:var(--causal);
+    animation:spin .8s linear infinite;flex:none;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+
+  /* Error */
+  .error{margin-top:32px;display:none;padding:16px 18px;background:#FBEEEA;border:1px solid #E4BFB4;border-radius:2px}
+  .error.on{display:block}
+  .error strong{display:block;margin-bottom:4px}
+  .error span{color:var(--muted);font-size:14px}
+
+  /* Result */
+  .result{margin-top:40px;display:none}
+  .result.on{display:block}
+
+  .verdict-label{font-size:13px;color:var(--faint);margin-bottom:8px}
+  .verdict{
+    font-family:var(--serif);font-weight:400;
+    font-size:23px;line-height:1.4;letter-spacing:-0.005em;
+    margin:0;
+  }
+
+  /* Meter */
+  .meter{margin-top:28px}
+  .meter-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .meter-top .k{font-size:14px;font-weight:600}
+  .meter-top .v{font-size:14px;color:var(--muted)}
+  .segs{display:flex;gap:5px}
+  .seg{height:8px;flex:1;border-radius:1px;background:transparent;border:1px solid var(--hair)}
+  .seg.fill{border-color:transparent}
+  .meter-note{margin-top:8px;font-size:13px;color:var(--faint);max-width:60ch}
+  .how{margin-top:12px;font-size:13.5px;color:var(--muted);max-width:64ch}
+  .how summary{cursor:pointer;color:var(--causal);font-weight:600;font-size:13.5px;list-style:none}
+  .how summary::-webkit-details-marker{display:none}
+  .how summary::before{content:'\25B8  ';font-weight:600}
+  .how[open] summary::before{content:'\25BE  '}
+  .how p{margin:10px 0 0}
+  .rubric{margin:10px 0 0;border-top:1px solid var(--hair)}
+  .rubric div{display:grid;grid-template-columns:118px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  .rubric b{color:var(--ink);font-weight:600}
+
+  /* Facts */
+  .facts{margin-top:30px;border-top:1px solid var(--hair)}
+  .fact{padding:15px 0;border-bottom:1px solid var(--hair)}
+  .fact .k{font-size:13px;color:var(--muted);margin-bottom:3px}
+  .fact .v{font-size:15px}
+
+  /* Checklist */
+  h2{font-family:var(--serif);font-weight:500;font-size:19px;margin:38px 0 4px}
+  .sec-note{font-size:13px;color:var(--faint);margin:0 0 14px}
+  .check{display:grid;grid-template-columns:26px 150px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--hair);align-items:start}
+  .check:last-child{border-bottom:1px solid var(--hair)}
+  .check .n{font-family:var(--serif);font-size:15px;color:var(--faint)}
+  .check .name{font-size:14px;font-weight:600;color:var(--ink)}
+  .check .body{font-size:14.5px;color:#243240}
+  @media(max-width:560px){
+    .check{grid-template-columns:22px 1fr;}
+    .check .name{grid-column:2}
+    .check .body{grid-column:1 / -1}
+  }
+
+  /* DAG */
+  .dag-frame{margin-top:16px;background:var(--surface);border:1px solid var(--hair);border-radius:2px;padding:20px;overflow:auto;
+    width:min(1400px, calc(100vw - 48px));position:relative;left:50%;transform:translateX(-50%);min-height:420px}
+  .dag-frame .mermaid{min-width:600px;display:flex}
+  .dag-frame .mermaid > svg{margin:0 auto;flex:none}
+  .legend{margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:26px;height:0;flex:none}
+  .sw-causal{border-top:2px solid var(--causal)}
+  .sw-confound{border-top:2px dashed var(--confound)}
+  .sw-mediate{border-top:4px solid var(--mediate)}
+  .sw-collider{border-top:2px dotted var(--faint)}
+  .legend [hidden]{display:none}
+
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--hair);font-size:12.5px;color:var(--faint);max-width:64ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <h1>Causal Claim Auditor</h1>
+    <p>Enter a cause and effect claim. This finds the studies behind it, reads how they were designed, and judges whether the evidence shows a real cause or only a link. Then it draws the causal structure as a diagram.</p>
+  </div>
+
+  <div class="ask">
+    <input id="claim" type="text" maxlength="200" placeholder="e.g. learning music improves math skills" autocomplete="off">
+    <button id="run">Run audit</button>
+  </div>
+  <div class="count" id="count">0 / 200</div>
+  <div class="hint">Takes 30 to 60 seconds, because it reads several studies before answering. Limited to 3 audits per visitor.</div>
+  <div class="examples" id="examples">
+    <button>smaller class sizes improve student outcomes</button>
+    <button>coffee reduces the risk of depression</button>
+    <button>living near green space improves wellbeing</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div id="status">Finding studies&hellip;</div>
+  </div>
+
+  <div class="error" id="error">
+    <strong id="error-title">Couldn't reach the auditor</strong>
+    <span id="error-body"></span>
+  </div>
+
+  <div class="result" id="result">
+    <div class="verdict-label">Verdict</div>
+    <p class="verdict" id="verdict"></p>
+    <div class="cached-note" id="cached-note" hidden>This claim was audited recently, so you are seeing the saved result.</div>
+
+    <div class="meter">
+      <div class="meter-top">
+        <span class="k">Causal support</span>
+        <span class="v" id="meter-v"></span>
+      </div>
+      <div class="segs" id="segs"></div>
+      <div class="meter-note">How strongly the evidence supports reading this as cause and effect, not just a link. Higher needs randomized trials and consistency; lower means the link may be confounding.</div>
+      <details class="how">
+        <summary>How the score is decided</summary>
+        <p>The score is a judgment made by the language model after it works through the five questions in the evidence check below. It follows a fixed rubric:</p>
+        <div class="rubric">
+          <div><b>5 Strong</b><span>Several independent randomized trials or strong natural experiments that agree, and no credible study finding no effect.</span></div>
+          <div><b>4 Moderately strong</b><span>At least one well conducted randomized trial or several strong quasi experimental studies, mostly consistent, but with a single landmark trial, some null findings, or limits on who the results apply to.</span></div>
+          <div><b>3 Mixed</b><span>Mostly observational evidence with reasonable adjustment, trials only on short term or indirect outcomes, or meaningful contradicting findings.</span></div>
+          <div><b>2 Weak</b><span>Observational evidence only, poorly adjusted or inconsistent, where confounding could explain the link.</span></div>
+          <div><b>1 Very weak</b><span>Little relevant evidence, only cross sectional or area level data, or evidence that mostly contradicts the claim.</span></div>
+        </div>
+        <p>Two caps apply. If the evidence rests on one landmark trial, or if any credible study finds no effect or the opposite effect, the score cannot go above 4, and that study is named in the consistency check.</p>
+        <p>The evidence comes from two web searches: one for supporting studies and one for null or contradicting findings. If the searches return different sources, the score can change.</p>
+      </details>
+    </div>
+
+    <div class="facts" id="facts"></div>
+
+    <h2>The evidence check</h2>
+    <p class="sec-note">The five questions a careful researcher asks before trusting a causal claim.</p>
+    <div id="checks"></div>
+
+    <h2>Causal structure</h2>
+    <p class="sec-note">How the pieces relate: the effect under test, the things that could confound it, and the mechanisms it works through.</p>
+    <div class="dag-frame"><div class="mermaid" id="dag"></div></div>
+    <div class="legend">
+      <span><span class="swatch sw-causal"></span>Direct causal effect</span>
+      <span><span class="swatch sw-confound"></span>Confounder</span>
+      <span><span class="swatch sw-mediate"></span>Mechanism (mediator)</span>
+      <span id="legend-collider" hidden><span class="swatch sw-collider"></span>Selection (collider)</span>
+    </div>
+  </div>
+
+  <footer>
+    A portfolio prototype. Verdicts are generated from automatically retrieved studies and can be wrong or incomplete, so treat them as a starting point, not a final answer.
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+/* ── CONFIG ───────────────────────────────────────────────
+   Same-site path, served by Caddy on dag.omid.consulting.
+   For local testing, use "http://localhost:5678/webhook/audit". */
+const WEBHOOK_URL = "/webhook/audit";
+/* ─────────────────────────────────────────────────────────── */
+
+mermaid.initialize({
+  startOnLoad:false,
+  theme:'base',
+  themeVariables:{
+    fontFamily:"'Inter',sans-serif",
+    primaryColor:'#FFFFFF',
+    primaryBorderColor:'#16202E',
+    primaryTextColor:'#16202E',
+    lineColor:'#5A6B7B',
+    tertiaryColor:'#EAEEF2'
+  },
+  flowchart:{curve:'basis',useMaxWidth:false,nodeSpacing:45,rankSpacing:70}
+});
+
+const $ = id => document.getElementById(id);
+const claimEl=$('claim'), runBtn=$('run');
+const loadingEl=$('loading'), statusEl=$('status');
+const errorEl=$('error'), resultEl=$('result');
+
+const SCORE_WORDS={1:'Very weak',2:'Weak',3:'Mixed',4:'Moderately strong',5:'Strong'};
+const bandColor = s => s<=2 ? 'var(--mediate)' : (s===3 ? 'var(--confound)' : 'var(--causal)');
+
+const STATUSES=['Finding studies\u2026','Reading study designs\u2026','Extracting effect estimates\u2026','Weighing confounding and mechanism\u2026','Writing the verdict\u2026'];
+let statusTimer=null;
+
+function pick(re, text){ const m=text.match(re); return m ? m[1].trim() : ''; }
+
+function extract(summary){
+  return {
+    strongest: pick(/\*\*Strongest design:\*\*\s*(.+)/, summary),
+    threat:    pick(/\*\*Primary threat:\*\*\s*(.+)/, summary),
+    upgrade:   pick(/\*\*What would upgrade it:\*\*\s*(.+)/, summary),
+    checks:[
+      ['Design ceiling',      pick(/\*\*Design ceiling:\*\*\s*(.+)/, summary)],
+      ['Confounding',         pick(/\*\*Confounding:\*\*\s*(.+)/, summary)],
+      ['Collider / mediator', pick(/\*\*Collider \/ mediator:\*\*\s*(.+)/, summary)],
+      ['Consistency',         pick(/\*\*Consistency:\*\*\s*(.+)/, summary)],
+      ['Temporality',         pick(/\*\*Temporality:\*\*\s*(.+)/, summary)]
+    ]
+  };
+}
+
+function renderMeter(score){
+  const col=bandColor(score);
+  $('meter-v').textContent = score+'/5 \u00b7 '+(SCORE_WORDS[score]||'');
+  const segs=$('segs'); segs.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const d=document.createElement('div');
+    d.className='seg'+(i<=score?' fill':'');
+    if(i<=score) d.style.background=col;
+    segs.appendChild(d);
+  }
+}
+
+function renderFacts(x){
+  const f=$('facts'); f.innerHTML='';
+  const rows=[['Strongest available design',x.strongest],['Main threat to the verdict',x.threat],['What would strengthen it',x.upgrade]];
+  for(const [k,v] of rows){
+    if(!v) continue;
+    const el=document.createElement('div'); el.className='fact';
+    el.innerHTML=`<div class="k"></div><div class="v"></div>`;
+    el.querySelector('.k').textContent=k;
+    el.querySelector('.v').textContent=v;
+    f.appendChild(el);
+  }
+}
+
+function renderChecks(checks){
+  const c=$('checks'); c.innerHTML='';
+  checks.forEach(([name,body],i)=>{
+    if(!body) return;
+    const el=document.createElement('div'); el.className='check';
+    el.innerHTML=`<div class="n"></div><div class="name"></div><div class="body"></div>`;
+    el.querySelector('.n').textContent=i+1;
+    el.querySelector('.name').textContent=name;
+    el.querySelector('.body').textContent=body;
+    c.appendChild(el);
+  });
+}
+
+/* Polish the diagram text before drawing:
+   1. readable box names: "SocioeconomicStatus" -> "Socioeconomic Status"
+   2. colour each line to match the legend (same layout, same labels)       */
+const spaced = t => t.replace(/_+/g,' ').replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2').replace(/\s+/g,' ').trim();
+
+let hasCollider=false;
+function polishDag(src){
+  hasCollider=false;
+  const lines=src.split('\n');
+  const edgeRe=/^(\s*)([A-Za-z0-9_]+)\s*(-->|==>|-\.->)\s*(?:\|([^|]*)\|)?\s*([A-Za-z0-9_]+)\s*;?\s*$/;
+  const defRe=/^(\s*)([A-Za-z0-9_]+)\s*\[\s*"?(.*?)"?\s*\]\s*;?\s*$/;
+  const looksLikeEdge=/(-->|==>|-\.->|---|-\.-|===)/;
+  const defined=new Set(), used=new Set(), types=[];
+  let safe=true;
+
+  const out=lines.map(ln=>{
+    let m=ln.match(edgeRe);
+    if(m){
+      used.add(m[2]); used.add(m[5]);
+      const lab=(m[4]||'').trim().toLowerCase();
+      let t='causal';
+      if(lab.startsWith('confound')) t='confounder';
+      else if(lab.startsWith('mediat')||m[3]==='==>') t='mediator';
+      else if(lab.startsWith('collid')||lab.startsWith('select')){ t='collider'; hasCollider=true; }
+      else if(m[3]==='-.->') t='confounder';
+      types.push(t);
+      return ln;
+    }
+    if(looksLikeEdge.test(ln)){ safe=false; return ln; }   // chained or unusual edge: skip colouring
+    m=ln.match(defRe);
+    if(m){ defined.add(m[2]); return m[1]+m[2]+'["'+spaced(m[3]).replace(/"/g,"'")+'"]'; }
+    return ln;
+  });
+
+  // boxes used in edges but never given a label get a readable one
+  used.forEach(id=>{ if(!defined.has(id)) out.splice(1,0,'  '+id+'["'+spaced(id)+'"]'); });
+
+  if(safe){
+    const style={
+      causal:'stroke:#0F766E,stroke-width:2.2px',
+      mediator:'stroke:#B45309,stroke-width:3.5px',
+      confounder:'stroke:#64748B,stroke-width:1.5px,stroke-dasharray:4 3',
+      collider:'stroke:#8A99A7,stroke-width:1.5px,stroke-dasharray:1 4'
+    };
+    types.forEach((t,i)=>out.push('  linkStyle '+i+' '+style[t]));
+  }
+  return out.join('\n');
+}
+
+async function renderDag(mermaidStr){
+  const host=$('dag');
+  host.removeAttribute('data-processed');
+  const tries=[polishDag(mermaidStr), mermaidStr];
+  for(let k=0;k<tries.length;k++){
+    try{
+      const {svg}=await mermaid.render('dagSvg_'+Date.now()+'_'+k, tries[k]);
+      host.innerHTML=svg;
+      $('legend-collider').hidden = !(k===0 && hasCollider);
+      return;
+    }catch(e){ /* fall back to the original text */ }
+  }
+  host.innerHTML='<div style="color:var(--muted);font-size:14px">Diagram could not be drawn for this result.</div>';
+}
+
+function showError(title,body){
+  clearInterval(statusTimer);
+  loadingEl.classList.remove('on');
+  resultEl.classList.remove('on');
+  $('error-title').textContent=title;
+  $('error-body').textContent=body;
+  errorEl.classList.add('on');
+  runBtn.disabled=false; runBtn.textContent='Run audit';
+}
+
+async function audit(){
+  const claim=claimEl.value.trim();
+  if(!claim){ claimEl.focus(); return; }
+
+  errorEl.classList.remove('on');
+  resultEl.classList.remove('on');
+  loadingEl.classList.add('on');
+  runBtn.disabled=true; runBtn.textContent='Auditing\u2026';
+
+  let i=0; statusEl.textContent=STATUSES[0];
+  statusTimer=setInterval(()=>{ i=(i+1)%STATUSES.length; statusEl.textContent=STATUSES[i]; },7000);
+
+  try{
+    const res=await fetch(WEBHOOK_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({claim})
+    });
+    if(res.status===400){ showError('Please check your claim','Write one cause and effect claim of up to 200 characters.'); return; }
+    if(res.status===429){ showError('Limit reached','Each visitor can run 3 audits in total so the tool stays free to use. Thank you for trying it.'); return; }
+    if(!res.ok){ showError('The auditor returned an error','Status '+res.status+'. Try again in a minute.'); return; }
+    const data=await res.json();
+    clearInterval(statusTimer);
+
+    const score=Number(data.score)||0;
+    const x=extract(data.summary||'');
+
+    $('verdict').textContent=data.verdict||'No verdict returned.';
+    $('cached-note').hidden=!data.cached;
+    renderMeter(score);
+    renderFacts(x);
+    renderChecks(x.checks);
+    await renderDag(data.mermaid||'');
+
+    loadingEl.classList.remove('on');
+    resultEl.classList.add('on');
+    runBtn.disabled=false; runBtn.textContent='Run audit';
+    resultEl.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(err){
+    showError("Couldn't reach the auditor",
+      'The request didn\u2019t go through. Check your connection and try again. ('+err.message+')');
+  }
+}
+
+runBtn.addEventListener('click',audit);
+const MAXLEN=200;
+function updateCount(){ const n=claimEl.value.length; $('count').textContent=n+' / '+MAXLEN; $('count').classList.toggle('near', n>=MAXLEN-20); }
+claimEl.addEventListener('input',updateCount);
+claimEl.addEventListener('keydown',e=>{ if(e.key==='Enter') audit(); });
+$('examples').addEventListener('click',e=>{
+  if(e.target.tagName==='BUTTON'){ claimEl.value=e.target.textContent; updateCount(); audit(); }
+});
+</script>
+</body>
+</html>
