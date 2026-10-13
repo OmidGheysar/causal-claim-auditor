@@ -6,7 +6,7 @@ Type a claim like *"coffee reduces the risk of depression"* and the tool searche
 
 **Live demo:** https://dag.omid.consulting (3 free audits per visitor)
 
-![Screenshot of an audit result](assets/screenshot.png)
+![Screenshot of an audit result](assets/screenshot.jpg)
 
 > Prototype. Verdicts can be wrong. Not medical or professional advice.
 
